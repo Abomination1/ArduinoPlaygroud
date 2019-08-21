@@ -100,3 +100,5 @@ while(i < 2):
     i = i+1
 plot()
 ser.close()
+
+# dejan
