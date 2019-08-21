@@ -1,0 +1,27 @@
+In order to use the I²C interface we need to include the Arduino standard Wire library so first things first, include Wire.h at the top of the sketch. You’ll notice directly after the include we define a variable called disk1 and assign it a hex value of 0×50. When we setup the chip above we set the address of the chip to 0×50 by tying all the address pins to GNS so we simple set this variable to that address which allows us to access the chip from within our sketch. This variable is not required but it allows us to easily change the address we want to access without going through all of the code and replacing the value. Also, if you plan on adding more than one chip it’s easier to refer to them as disk1, disk2, etc rather than 0×50, 0×51 which might get confusing.
+
+Moving on we have our standard setup and a loop functions, for this tutorial the loop function is left empty so we’ll just focus on the setup function. We first initialize our Serial connection for printing back to the computer and then we initiate the I²C connection by calling Wire.begin(). This enables pins 4 and 5 for I²C and also enabled the internal pull-up resistor(See note above). Next we create a new variable to store the address of the eeprom we want to write to(not the address of the eeprom IC itself but the address of the byte we want to read/write to). Since this eeprom has 32Kbytes of storage this address can be any number between 0 and 32,767; we’ll start with address 0. After we’ve initialized everything we call our two primary functions, writeEEPROM and readEEPROM which actually do the dirty work of writing and reading the bytes of data.
+
+Lets first start off with the writeEEPROM function. This function takes three arguments, the device address(the disk1 variable), the memory address on the eeprom and the byte of data you want to write. The first argument is the address of the device you want to write to, in our case we only have one device(disk1) so we pass this on. The next argument is the address on the eeprom you want to write to and as stated above can be between 0 and 32,767. Finally we have to pass along the byte we want to store. So, writeEEPROM(disk1, address, 123) is going to write the decimal 123 to “address”(which is 0) on disk1(0×50). Lets jump into the actual writeEEPROM function to learn what it does.
+
+We first call the Wire.beginTransmission function which sends the deviceaddress to let the chip know we want to communicate with it. Next we have to send the address on the eeprom we want to write to. Since our eeprom chip has 32,000 address locations we are using two bytes(16 bits) to store the address but we can only send one byte at a time so we have to split it up. The first send function takes the eeaddress and shifts the bits to the right by eight which moves the higher end of the 16 bit address down to the lower eight bits. Next we do a bitwise AND to get just the last eight bits. To illustrate this lets follow the steps below.
+
+Lets say we want to write to address location 20,000 which is 0100 1110 0010 0000 in binary. We need to send the MSB(Most significant bits) first so we have to shift our address to the right eight bits.
+
+0100 1110 0010 0000 (eeaddress)
+After shifting 8 bits to the right we have
+0100 1110
+
+We now have the first half of the address, time to get the second half:
+
+0100 1110 0010 0000 (eeaddress)
+After we bitwise AND 0xFF with eeadddress we get
+0010 0000
+
+This means our 24LC256 chip gets the address 1001 1100 and then 0010 0000 which tells it to store the next byte in address location 20,000. Now that we’ve sent the address we send the data and then we end the process by calling the endTransmission function. The 24LC256 gets the data and writes the data to that address location. To finish up this function you’ll notice I’ve included a delay of 5 milliseconds. This allows the chip time to complete the write operation, without this if you try to do sequential writes weird things might happen.
+
+Now that you’re data has been stored it’s time to get it back, lets examine the readEEPROM function.
+
+The readEEPROM accepts two arguments and returns on byte(the data). The arguments it accepts are the same first two arguments the write function, the device address and the address on the eeprom to read from. First we declare a variable to store the byte we’re going to retrieve. Next we start off just like we did with the write function by starting the process with beginTransmission and then we send the address we want to access; this works exactly the same way as the write function. Continuing on we end the the transmission and we’ve now set the 24LC256 with the address we’re interested in so now we just have to request and read the data. The next function requestFrom() sends the command to that chip to start sending the data at the address we set above. The second argument is how many bytes(starting at this address) to send back; we’re only requesting one. Finally we check to see if there is data available on the I²C bus and if there is we read it into the rdata variable. We return the byte of data and we’re done!
+
+That’s all you really need to know in order to use and external I²C EEPROM chip with the Arduino. Take this setup and play around with it, see if you can figure out how to store more than one byte at a time or if you want a challenge try using more than one 24LC256 on the same I²C bus.
